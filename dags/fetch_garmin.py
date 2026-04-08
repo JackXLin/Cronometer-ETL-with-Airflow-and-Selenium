@@ -13,6 +13,11 @@ from garmin_activity_normalization import (
     fetch_activity_rows_for_date,
     summarize_heart_rate_detail_rows,
 )
+from garmin_backfill_schedule import (
+    load_garmin_gap_backfill_last_run_date,
+    persist_garmin_gap_backfill_run_date,
+    should_run_garmin_gap_backfill,
+)
 from garmin_client import load_garmin_client_from_tokens
 from garmin_daily_normalization import (
     _call_optional_api_method,
@@ -513,12 +518,21 @@ def fetch_garmin_daily_data(
     elif existing_daily is None or existing_daily.empty:
         sync_mode = "initial backfill"
     date_strings = build_date_range_from_bounds(sync_start_date, effective_end_date)
-    gap_backfill_dates = find_garmin_daily_gap_dates(
-        existing_daily,
-        historical_start_date=historical_start_date,
-        end_date=effective_end_date,
-        overlap_start_date=sync_start_date,
-    )
+    gap_backfill_dates: list[str] = []
+    gap_backfill_due = False
+    if not force_full_refresh and existing_daily is not None and not existing_daily.empty:
+        last_gap_backfill_run_date = load_garmin_gap_backfill_last_run_date(output_path)
+        gap_backfill_due = should_run_garmin_gap_backfill(
+            reference_date=effective_end_date,
+            last_run_date=last_gap_backfill_run_date,
+        )
+    if gap_backfill_due:
+        gap_backfill_dates = find_garmin_daily_gap_dates(
+            existing_daily,
+            historical_start_date=historical_start_date,
+            end_date=effective_end_date,
+            overlap_start_date=sync_start_date,
+        )
     if gap_backfill_dates:
         date_strings = sorted(set(date_strings).union(gap_backfill_dates))
     LOGGER.info(
@@ -533,6 +547,16 @@ def fetch_garmin_daily_data(
             "Detected %s bounded Garmin gap date(s) outside the overlap window: %s.",
             len(gap_backfill_dates),
             ", ".join(gap_backfill_dates),
+        )
+    elif gap_backfill_due:
+        LOGGER.info(
+            "Garmin historical gap-backfill pass is due for %s but no bounded gap dates were detected.",
+            effective_end_date.isoformat(),
+        )
+    elif not force_full_refresh and existing_daily is not None and not existing_daily.empty:
+        LOGGER.info(
+            "Skipping Garmin historical gap-backfill pass for %s because the biweekly cadence is not due.",
+            effective_end_date.isoformat(),
         )
     client = load_garmin_client_from_tokens()
     LOGGER.info(
@@ -602,4 +626,6 @@ def fetch_garmin_daily_data(
         supporting_paths["activities"],
         supporting_paths["heart_rate"],
     )
+    if gap_backfill_due:
+        persist_garmin_gap_backfill_run_date(effective_end_date, output_path)
     return output_path

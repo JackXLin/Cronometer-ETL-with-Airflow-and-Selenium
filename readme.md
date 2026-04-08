@@ -64,9 +64,10 @@ If you want to enrich the processed dataset with Garmin daily metrics such as st
 4. Leave `GARMINTOKENS` pointed at `/opt/airflow/config/garmin_tokens` unless you have a different mounted token location.
 5. Set `GARMIN_HISTORICAL_START_DATE` to the first day you want included in the first API backfill when no Garmin history has already been pre-seeded.
 6. Leave `GARMIN_SYNC_OVERLAP_DAYS=2` unless you want a larger overlap window for late Garmin corrections.
-7. Use `GARMIN_FORCE_FULL_REFRESH=true` only when you want the next run to rebuild the Garmin store from scratch, then return it to `false`.
-8. Keep `GARMIN_LOOKBACK_DAYS` only as a legacy fallback when `GARMIN_HISTORICAL_START_DATE` is not configured.
-9. Install the Python dependencies in `requirements.txt`, which now include `pydantic` for Garmin activity/detail row validation.
+7. Set `GARMIN_GAP_BACKFILL_INTERVAL_DAYS` only if you want the bounded historical Garmin gap-repair pass to run on a cadence other than the default 14 days.
+8. Use `GARMIN_FORCE_FULL_REFRESH=true` only when you want the next run to rebuild the Garmin store from scratch, then return it to `false`.
+9. Keep `GARMIN_LOOKBACK_DAYS` only as a legacy fallback when `GARMIN_HISTORICAL_START_DATE` is not configured.
+10. Install the Python dependencies in `requirements.txt`, which now include `pydantic` for Garmin activity/detail row validation.
 
 ## Running the Docker Containers
 
@@ -116,8 +117,10 @@ The current JSON importer fills daily metrics and activity sessions, but it leav
 
 Garmin sync now behaves as follows:
 
-- Without a pre-seeded Garmin store, the first API-based DAG run backfills from `GARMIN_HISTORICAL_START_DATE` through today.
-- After a manual historical seed or any earlier Garmin sync, the DAG reads the latest stored Garmin date and re-fetches from `last_stored_date - GARMIN_SYNC_OVERLAP_DAYS` through today.
+- Without a pre-seeded Garmin store, the first API-based DAG run backfills from `GARMIN_HISTORICAL_START_DATE` through the most recent completed day.
+- After a manual historical seed or any earlier Garmin sync, the DAG reads the latest stored Garmin date and re-fetches from `last_stored_date - GARMIN_SYNC_OVERLAP_DAYS` through the most recent completed day.
+- The current in-progress day is excluded from the normal sync window so `garmin_daily.csv` only stores completed-day Garmin rows.
+- The normal recent-day Garmin overlap refresh still runs on the daily DAG cadence, while the bounded historical gap-backfill pass runs only when `GARMIN_GAP_BACKFILL_INTERVAL_DAYS` is due.
 - Garmin artifacts are preserved across DAG runs, so the mounted CSV directory now acts as the historical Garmin store.
 - The initial API historical backfill can take much longer than later daily syncs because Garmin extraction queries multiple endpoint families per day.
 - If you need to rebuild the Garmin store, set `GARMIN_FORCE_FULL_REFRESH=true` for one run and then return it to `false`.

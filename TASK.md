@@ -1,5 +1,14 @@
 # TASK
 
+## 2026-04-08
+
+- [x] Review recent changelog entries and update stale documentation to match the current Garmin sync behavior.
+
+## 2026-04-03
+
+- [x] Change the bounded Garmin historical gap backfill so the daily Garmin sync stays daily while the historical repair pass runs automatically every 14 days.
+- [x] Document and expose `GARMIN_GAP_BACKFILL_INTERVAL_DAYS` through `.env.example`, `docker-compose.yaml`, `readme.md`, and a new changelog entry.
+
 ## 2026-04-02
 
 - [x] Limit the TDEE intake-vs-TDEE chart to the last 6 months and investigate/fix missing HRV in the recent 30-day Garmin lag heatmaps.

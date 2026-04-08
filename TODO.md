@@ -1,5 +1,14 @@
 # TODO
 
+## Completed (2026-04-08)
+
+- [x] Review recent changelog entries and update stale documentation to match the current Garmin sync behavior.
+
+## Completed (2026-04-03)
+
+- [x] Keep the Garmin daily sync on its normal cadence while changing the bounded historical gap-backfill pass to run automatically every 14 days.
+- [x] Add `GARMIN_GAP_BACKFILL_INTERVAL_DAYS` to `.env.example`, pass it through `docker-compose.yaml`, document it in `readme.md`, and write a new changelog entry for the 2026-04-03 Garmin cadence work.
+
 ## In Progress (2026-04-02)
 
 
